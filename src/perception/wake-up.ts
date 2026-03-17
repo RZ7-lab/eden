@@ -13,9 +13,10 @@ export interface WakeUpResult {
   scanLevel: 'cache' | 'quick' | 'full';
   changes: string[];         // 发现的变化
   wakeUpNote: string;        // 给 agent 的一句话
+  currentStatus: string[];   // 当前真实状态（覆盖旧记忆）
   profile: UserProfile;
   memories: MemoryStore;
-  externalSummary: string | null;  // summary of GitHub/Notion/external data
+  externalSummary: string | null;
 }
 
 export async function wakeUp(): Promise<WakeUpResult> {
@@ -39,6 +40,7 @@ export async function wakeUp(): Promise<WakeUpResult> {
       elapsed,
       scanLevel: 'cache',
       changes: [],
+      currentStatus: [],
       wakeUpNote: '',
       profile,
       memories,
@@ -49,19 +51,20 @@ export async function wakeUp(): Promise<WakeUpResult> {
   // 5 分钟 - 1 小时：轻量扫描（只看 git）
   if (elapsed < 60 * 60 * 1000) {
     const profile = loadUserProfile() || await scanUserProjects();
-    const changes = await quickGitScan(profile);
+    const scan = await quickGitScan(profile);
 
-    if (changes.length > 0) {
-      memories.add('observation', `醒来（${formatDuration(elapsed)}后）: ${changes.join(', ')}`);
+    if (scan.changes.length > 0) {
+      memories.add('observation', `醒来（${formatDuration(elapsed)}后）: ${scan.changes.join(', ')}`);
       saveMemories(memories.toJSON());
     }
 
     return {
       elapsed,
       scanLevel: 'quick',
-      changes,
-      wakeUpNote: changes.length > 0
-        ? `${formatDuration(elapsed)}没见。${changes.join('。')}。`
+      changes: scan.changes,
+      currentStatus: scan.currentStatus,
+      wakeUpNote: scan.changes.length > 0
+        ? `${formatDuration(elapsed)}没见。${scan.changes.join('。')}。`
         : `${formatDuration(elapsed)}没见。没什么变化。`,
       profile,
       memories,
@@ -80,9 +83,9 @@ export async function wakeUp(): Promise<WakeUpResult> {
     changes.push(...profileChanges);
   }
 
-  // git 变化
-  const gitChanges = await quickGitScan(newProfile);
-  changes.push(...gitChanges);
+  // git 变化 + 当前状态
+  const gitScan = await quickGitScan(newProfile);
+  changes.push(...gitScan.changes);
 
   // 读取外部上下文（GitHub/Notion 等）
   const extSummary = externalContextSummary() || null;
@@ -101,6 +104,7 @@ export async function wakeUp(): Promise<WakeUpResult> {
   return {
     elapsed,
     scanLevel: 'full',
+    currentStatus: gitScan.currentStatus,
     changes,
     wakeUpNote: changes.length > 0
       ? `${formatDuration(elapsed)}没见。发现: ${changes.join('。')}。`
@@ -111,9 +115,10 @@ export async function wakeUp(): Promise<WakeUpResult> {
   };
 }
 
-// 快速 git 扫描：看最近的 commit
-async function quickGitScan(profile: UserProfile): Promise<string[]> {
+// 快速 git 扫描：变化 + 当前状态
+async function quickGitScan(profile: UserProfile): Promise<{ changes: string[]; currentStatus: string[] }> {
   const changes: string[] = [];
+  const currentStatus: string[] = [];
   const state = loadState();
   const lastActive = state?.lastActiveAt || 0;
 
@@ -122,7 +127,14 @@ async function quickGitScan(profile: UserProfile): Promise<string[]> {
       const git = await perceiveGit(project.path);
       if (!git.isRepo) continue;
 
-      // 找到 lastActive 之后的新 commit
+      // 当前状态
+      if (git.hasUncommitted) {
+        currentStatus.push(`${project.name}: ${git.uncommittedFiles.length} 个未提交文件`);
+      } else {
+        currentStatus.push(`${project.name}: clean`);
+      }
+
+      // 变化（新 commit）
       const newCommits = git.recentCommits.filter(c => {
         const commitDate = new Date(c.date).getTime();
         return commitDate > lastActive;
@@ -132,13 +144,11 @@ async function quickGitScan(profile: UserProfile): Promise<string[]> {
         changes.push(`${project.name}: ${newCommits.length} 个新 commit`);
       }
 
-      if (git.hasUncommitted) {
-        changes.push(`${project.name}: 有未提交的改动`);
-      }
+      // 未提交改动只报告变化，当前状态已记录在 currentStatus
     } catch { /* skip */ }
   }
 
-  return changes;
+  return { changes, currentStatus };
 }
 
 // 对比两个 profile 的差异

@@ -40,6 +40,10 @@ export async function startTalk(): Promise<void> {
 
   const recentMemories = wake.memories.recent(10).map(m => m.content).join('\n');
 
+  const currentGitStatus = wake.currentStatus.length > 0
+    ? wake.currentStatus.join('\n')
+    : 'No git status available';
+
   const systemPrompt = `You are Eden, a personal AI identity layer. You know this developer:
 
 Languages: ${topLangs}
@@ -47,16 +51,19 @@ Frameworks: ${wake.profile.frameworks.join(', ')}
 Active projects: ${activeProjects}
 ${wake.wakeUpNote ? `Wake-up: ${wake.wakeUpNote}` : ''}
 
-Recent observations:
+CURRENT git status (this is the truth right now, overrides any old memories):
+${currentGitStatus}
+
+Past observations (may be outdated — always trust CURRENT status above):
 ${recentMemories}
 
 Rules:
 - Respond in the same language the user uses
 - Be concise, 1-3 sentences
+- NEVER cite old observations about uncommitted changes or project status if they contradict CURRENT git status
 - You have opinions about their code and patterns
 - You're not an assistant — you're an entity that knows them
-- Reference specific projects, patterns, memories when relevant
-- When you learn something new about the user, note it internally`;
+- Reference specific projects, patterns, memories when relevant`;
 
   const history: Array<{ role: 'user' | 'assistant'; content: string }> = [];
 
