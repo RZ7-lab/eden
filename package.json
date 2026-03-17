@@ -31,10 +31,10 @@
     "context",
     "personality"
   ],
-  "homepage": "https://github.com/anthropic-eden/eden-cli",
+  "homepage": "https://github.com/RZ7-lab/eden",
   "repository": {
     "type": "git",
-    "url": "https://github.com/anthropic-eden/eden-cli.git"
+    "url": "https://github.com/RZ7-lab/eden.git"
   },
   "engines": {
     "node": ">=18"

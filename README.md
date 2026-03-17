@@ -1,13 +1,13 @@
 <p align="center">
-  <strong>eden-ai</strong><br>
+  <strong>eden-me</strong><br>
   Your personal AI identity layer.
 </p>
 
 <p align="center">
-  <a href="https://www.npmjs.com/package/eden-ai"><img src="https://img.shields.io/npm/v/eden-ai.svg" alt="npm version"></a>
-  <a href="https://www.npmjs.com/package/eden-ai"><img src="https://img.shields.io/npm/dm/eden-ai.svg" alt="npm downloads"></a>
-  <a href="https://github.com/anthropic-eden/eden-cli/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/eden-ai.svg" alt="license"></a>
-  <img src="https://img.shields.io/node/v/eden-ai.svg" alt="node version">
+  <a href="https://www.npmjs.com/package/eden-me"><img src="https://img.shields.io/npm/v/eden-me.svg" alt="npm version"></a>
+  <a href="https://www.npmjs.com/package/eden-me"><img src="https://img.shields.io/npm/dm/eden-me.svg" alt="npm downloads"></a>
+  <a href="https://github.com/RZ7-lab/eden/blob/main/LICENSE"><img src="https://img.shields.io/npm/l/eden-me.svg" alt="license"></a>
+  <img src="https://img.shields.io/node/v/eden-me.svg" alt="node version">
 </p>
 
 ---
@@ -21,7 +21,7 @@ Eden is an [MCP](https://modelcontextprotocol.io/) server that scans your local 
 ## Install
 
 ```
-npx eden-ai
+npx eden-me
 ```
 
 That's it. No config files. No API keys for the core experience. No manual setup.
@@ -29,7 +29,7 @@ That's it. No config files. No API keys for the core experience. No manual setup
 ## What happens
 
 ```
-$ npx eden-ai
+$ npx eden-me
 
   ✦ Eden — initializing your AI identity
 
@@ -123,7 +123,7 @@ Eden is local-first by design.
 | **Auto-connects to tools** | Claude Code, Cursor, Windsurf | Manual integration | Manual integration |
 | **Dev environment scanning** | Yes — projects, git, stack | No | No |
 | **Cross-tool continuity** | Yes — sessions tracked across tools | Single-tool memory | Context retrieval |
-| **Setup** | `npx eden-ai` | API key + SDK setup | API key + SDK setup |
+| **Setup** | `npx eden-me` | API key + SDK setup | API key + SDK setup |
 | **Privacy** | All local | Data on their servers | Data on their servers |
 
 Eden is purpose-built for developers who use multiple AI coding tools and want persistent context without sending their data to another cloud service.
