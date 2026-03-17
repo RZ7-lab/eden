@@ -1,0 +1,54 @@
+{
+  "name": "eden-me",
+  "version": "0.1.0",
+  "description": "Your personal AI identity — one install, every AI tool knows you. 你的 AI 身份，一次安装，所有工具都认识你。",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "eden": "./dist/index.js",
+    "eden-ai": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "eden",
+    "ai",
+    "agent",
+    "identity",
+    "mcp",
+    "cli",
+    "developer",
+    "memory",
+    "claude",
+    "context",
+    "personality"
+  ],
+  "homepage": "https://github.com/anthropic-eden/eden-cli",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/anthropic-eden/eden-cli.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "chalk": "^5.4.1",
+    "commander": "^13.1.0",
+    "simple-git": "^3.27.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "typescript": "^5.7.0"
+  }
+}
