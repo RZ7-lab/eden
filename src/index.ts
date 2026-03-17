@@ -43,11 +43,24 @@ program
 program
   .command('me')
   .description('看看 Eden 眼中的你')
-  .option('--web', '在浏览器中打开')
+  .option('--web', '在浏览器中打开（需要先 eden sync cloud）')
   .action(async (opts) => {
     if (opts.web) {
-      const { startDashboardServer } = await import('./interface/web-dashboard.js');
-      startDashboardServer();
+      const { loadConfig } = await import('./persistence/config.js');
+      const { exec } = await import('node:child_process');
+      const config = loadConfig();
+      const syncUrl = config.syncUrl || 'https://eden-me.vercel.app';
+      const token = config.deviceToken || '';
+
+      if (!token) {
+        console.log(chalk.dim('  先运行 eden sync cloud'));
+        return;
+      }
+
+      const url = `${syncUrl}/me?token=${token}`;
+      console.log(chalk.dim(`  打开 ${url}`));
+      const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
+      exec(`${cmd} ${url}`);
     } else {
       const { showDashboard } = await import('./interface/dashboard.js');
       showDashboard();

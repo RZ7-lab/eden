@@ -100,8 +100,15 @@ export async function runInit(): Promise<void> {
     location: os.homedir(),
   }]);
 
-  // ===== API key（可选） =====
+  // ===== Device token（自动生成） =====
   const config = loadConfig();
+  if (!config.deviceToken) {
+    const { randomUUID } = await import('node:crypto');
+    config.deviceToken = randomUUID();
+    saveConfig(config);
+  }
+
+  // ===== API key（可选） =====
   if (!config.apiKey) {
     console.log();
     console.log(chalk.dim('  Claude API key 让 Eden 能自己思考（可选）'));
