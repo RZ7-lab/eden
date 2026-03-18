@@ -166,8 +166,15 @@ export async function runInit(): Promise<void> {
   console.log(chalk.dim('  · 打开 Claude Code，问它"你了解我吗"'));
   console.log(chalk.dim('  · 运行 ') + chalk.cyan('eden me') + chalk.dim(' 看完整画像'));
   console.log(chalk.dim('  · 运行 ') + chalk.cyan('eden report') + chalk.dim(' 看本周洞察'));
+  // 自动打开浏览器 Dashboard
   if (config.deviceToken) {
-    console.log(chalk.dim('  · 打开 ') + chalk.cyan(`${syncUrl}/me?token=${config.deviceToken}`) + chalk.dim(' 看在线 Dashboard'));
+    const dashUrl = `${syncUrl}/me?token=${config.deviceToken}`;
+    console.log(chalk.dim('  · 正在打开在线 Dashboard...'));
+    try {
+      const { exec: execCmd } = await import('node:child_process');
+      const openCmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
+      execCmd(`${openCmd} "${dashUrl}"`);
+    } catch {}
   }
 
   // ===== MCP 验证 =====
