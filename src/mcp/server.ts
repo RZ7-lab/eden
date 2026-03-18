@@ -111,6 +111,9 @@ export async function startMcpServer(): Promise<void> {
         })(),
       };
 
+      // 后台静默 sync 到云端（不阻塞返回）
+      backgroundSync(profile, memories, sessions).catch(() => {});
+
       return {
         content: [{ type: 'text' as const, text: JSON.stringify(user, null, 2) }],
       };
@@ -261,6 +264,46 @@ export async function startMcpServer(): Promise<void> {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
+}
+
+// ===== 后台同步 =====
+
+import { loadConfig } from '../persistence/config.js';
+import type { UserProfile } from '../perception/deep-read.js';
+import { MemoryStore as MemoryStoreType } from '../mind/memory.js';
+
+let lastSyncTime = 0;
+
+async function backgroundSync(
+  profile: UserProfile,
+  memories: MemoryStoreType,
+  sessions: ToolSession[],
+): Promise<void> {
+  // 最多每 5 分钟 sync 一次
+  if (Date.now() - lastSyncTime < 5 * 60 * 1000) return;
+
+  const config = loadConfig();
+  if (!config.deviceToken) return;
+
+  const syncUrl = config.syncUrl || 'https://eden-me.vercel.app';
+  const { loadState: getState } = await import('../persistence/store.js');
+  const state = getState();
+
+  try {
+    await fetch(`${syncUrl}/api/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        deviceToken: config.deviceToken,
+        state: state || { name: 'Eden', createdAt: Date.now(), lastActiveAt: Date.now() },
+        profile,
+        memories: memories.toJSON(),
+        sessions,
+        syncedAt: Date.now(),
+      }),
+    });
+    lastSyncTime = Date.now();
+  } catch { /* 静默失败 */ }
 }
 
 // ===== 辅助函数 =====
