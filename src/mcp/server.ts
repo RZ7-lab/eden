@@ -271,6 +271,7 @@ export async function startMcpServer(): Promise<void> {
 import { loadConfig } from '../persistence/config.js';
 import type { UserProfile } from '../perception/deep-read.js';
 import { MemoryStore as MemoryStoreType } from '../mind/memory.js';
+import { generateProactiveInsights } from '../perception/proactive.js';
 
 let lastSyncTime = 0;
 
@@ -289,6 +290,22 @@ async function backgroundSync(
   const { loadState: getState } = await import('../persistence/store.js');
   const state = getState();
 
+  // 生成 proactive insights
+  const insights = await generateProactiveInsights(profile, memories, []);
+
+  // 读取最新的周报叙事
+  let weeklyNarrative: string | undefined;
+  try {
+    const fs = await import('node:fs');
+    const path = await import('node:path');
+    const { JOURNAL_DIR } = await import('../persistence/config.js');
+    const files = fs.readdirSync(JOURNAL_DIR).filter((f: string) => f.startsWith('insight-')).sort().reverse();
+    if (files.length > 0) {
+      const report = JSON.parse(fs.readFileSync(path.join(JOURNAL_DIR, files[0]), 'utf-8'));
+      weeklyNarrative = report.narrative;
+    }
+  } catch {}
+
   try {
     await fetch(`${syncUrl}/api/sync`, {
       method: 'POST',
@@ -299,6 +316,8 @@ async function backgroundSync(
         profile,
         memories: memories.toJSON(),
         sessions,
+        insights,
+        weeklyNarrative,
         syncedAt: Date.now(),
       }),
     });

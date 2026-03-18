@@ -480,16 +480,36 @@ syncCmd
       profile = JSON.parse(fs.readFileSync(PROFILE_PATH, 'utf-8'));
     } catch {}
 
+    // 生成 insights
+    const { generateProactiveInsights } = await import('./perception/proactive.js');
+    const { MemoryStore } = await import('./mind/memory.js');
+    const mem = new MemoryStore();
+    mem.load(loadMemories());
+    const insights = await generateProactiveInsights(profile as unknown as import('./perception/deep-read.js').UserProfile, mem, []);
+
+    // 读取周报叙事
+    let weeklyNarrative: string | undefined;
+    try {
+      const { JOURNAL_DIR } = await import('./persistence/config.js');
+      const journalFiles = fs.readdirSync(JOURNAL_DIR).filter((f: string) => f.startsWith('insight-')).sort().reverse();
+      if (journalFiles.length > 0) {
+        const report = JSON.parse(fs.readFileSync(`${JOURNAL_DIR}/${journalFiles[0]}`, 'utf-8'));
+        weeklyNarrative = report.narrative;
+      }
+    } catch {}
+
     const syncData = {
       deviceToken: config.deviceToken,
       state,
       profile,
       memories: loadMemories(),
       sessions: loadSessions(),
+      insights,
+      weeklyNarrative,
       syncedAt: Date.now(),
     };
 
-    const syncUrl = opts.url || config.syncUrl || 'http://localhost:3000';
+    const syncUrl = opts.url || config.syncUrl || 'https://eden-me.vercel.app';
 
     console.log();
     console.log(chalk.dim(`  同步到 ${syncUrl}...`));
