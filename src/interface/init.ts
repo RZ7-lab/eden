@@ -111,6 +111,37 @@ export async function runInit(): Promise<void> {
     saveConfig(config);
   }
 
+  // ===== 自动同步到云端 =====
+  const syncUrl = config.syncUrl || 'https://eden-me.vercel.app';
+  try {
+    const fs = await import('node:fs');
+    const { PROFILE_PATH } = await import('../persistence/config.js');
+    let profileData = { languages: {}, frameworks: [], projects: [], lastScanned: 0 };
+    try { profileData = JSON.parse(fs.readFileSync(PROFILE_PATH, 'utf-8')); } catch {}
+
+    await fetch(`${syncUrl}/api/sync`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        deviceToken: config.deviceToken,
+        state: { name: 'Eden', createdAt: Date.now(), lastActiveAt: Date.now() },
+        profile: profileData,
+        memories: [{
+          id: 'mem_birth',
+          type: 'milestone',
+          content: `初始化。${profile.projects.length} 个项目，${topLangs.join('/')}，${profile.frameworks.slice(0, 3).join('/')}。`,
+          timestamp: Date.now(),
+          location: os.homedir(),
+          priority: 5,
+        }],
+        sessions: [],
+        syncedAt: Date.now(),
+      }),
+    });
+    config.syncUrl = syncUrl;
+    saveConfig(config);
+  } catch { /* 静默失败，不影响 init */ }
+
   // ===== API key（可选） =====
   if (!config.apiKey) {
     console.log();
@@ -135,6 +166,9 @@ export async function runInit(): Promise<void> {
   console.log(chalk.dim('  · 打开 Claude Code，问它"你了解我吗"'));
   console.log(chalk.dim('  · 运行 ') + chalk.cyan('eden me') + chalk.dim(' 看完整画像'));
   console.log(chalk.dim('  · 运行 ') + chalk.cyan('eden report') + chalk.dim(' 看本周洞察'));
+  if (config.deviceToken) {
+    console.log(chalk.dim('  · 打开 ') + chalk.cyan(`${syncUrl}/me?token=${config.deviceToken}`) + chalk.dim(' 看在线 Dashboard'));
+  }
 
   // ===== MCP 验证 =====
   const connectedClaudeCode = results.some(r => r.tool === 'Claude Code' && r.success);
