@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #050505;
+  --surface: #0a0a0a;
+  --elevated: #111;
+  --border: #1a1a1a;
+  --border-hover: #2a2a2a;
+  --text: #c8c8c8;
+  --text-bright: #f0f0f0;
+  --accent: #6d9fff;
+  --accent-dim: #3b6fd4;
+  --dim: #666;
+  --muted: #3a3a3a;
+  --green: #4ade80;
+  --green-dim: #166534;
+  --purple: #c084fc;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-size: 13px;
+  letter-spacing: -0.02em;
+  line-height: 1.8;
+}
+
+::selection {
+  background: var(--accent-dim);
+  color: white;
+}
+
+/* Typography scale */
+h2 {
+  letter-spacing: -0.02em;
+}
+
+h3 {
+  letter-spacing: -0.01em;
+}
+
+p {
+  letter-spacing: 0.005em;
+}
+
+/* Glow effects */
+.glow-accent {
+  box-shadow: 0 0 80px rgba(109, 159, 255, 0.06), 0 0 24px rgba(109, 159, 255, 0.03);
+}
+
+.glow-green {
+  box-shadow: 0 0 40px rgba(74, 222, 128, 0.05);
+}
+
+/* Subtle grain texture */
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.012'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Smooth scrolling */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Fade in animation */
+@keyframes fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fadeUp 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  opacity: 0;
+}
+
+/* Terminal cursor blink */
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+.cursor-blink {
+  animation: blink 1s step-end infinite;
+}
+
+/* Divider between sections */
+section + section {
+  border-top: 1px solid var(--border);
+  padding-top: 3.5rem;
+}
