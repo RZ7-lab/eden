@@ -8,6 +8,59 @@ import { loadMemories, saveMemories } from '../persistence/store.js';
 import { MemoryStore } from '../mind/memory.js';
 import { chat } from '../llm/client.js';
 
+type DetectedCategory = 'preference' | 'decision' | 'pattern';
+
+const DETECT_RULES: Array<{ category: DetectedCategory; patterns: RegExp[] }> = [
+  {
+    category: 'preference',
+    patterns: [
+      /\bi prefer\b/i,
+      /\bi like\b/i,
+      /\bi don'?t like\b/i,
+      /\bi want\b/i,
+      /\bi love\b/i,
+      /\bi hate\b/i,
+      /我喜欢/,
+      /我偏好/,
+      /我不喜欢/,
+      /我习惯/,
+    ],
+  },
+  {
+    category: 'decision',
+    patterns: [
+      /\bi decided\b/i,
+      /\blet'?s go with\b/i,
+      /\bi'?m choosing\b/i,
+      /\bwe'?re going with\b/i,
+      /我决定/,
+      /就用/,
+    ],
+  },
+  {
+    category: 'pattern',
+    patterns: [
+      /\bi usually\b/i,
+      /\bi always\b/i,
+      /\bi tend to\b/i,
+      /\bi never\b/i,
+      /我一般/,
+      /我总是/,
+    ],
+  },
+];
+
+function detectUserIntent(input: string): DetectedCategory | null {
+  for (const rule of DETECT_RULES) {
+    for (const pat of rule.patterns) {
+      if (pat.test(input)) {
+        return rule.category;
+      }
+    }
+  }
+  return null;
+}
+
 export async function startTalk(): Promise<void> {
   const config = loadConfig();
 
@@ -93,11 +146,23 @@ Rules:
 
       history.push({ role: 'assistant', content: reply });
 
-      // 自动存对话记忆
+      // 加载记忆
       const memories = new MemoryStore();
       memories.load(loadMemories());
+
+      // 自动存对话记忆
       memories.add('conversation', `用户: ${input.slice(0, 80)}`, undefined);
       memories.add('conversation', `Eden: ${reply.slice(0, 80)}`, undefined);
+
+      // 检测用户偏好/决策/模式并自动记录
+      const detected = detectUserIntent(input);
+      if (detected) {
+        const tag = `[${detected}]`;
+        memories.add('observation', `${tag} ${input.slice(0, 120)}`, undefined);
+        console.log(chalk.dim(`    eden  [remembered: ${detected}]`));
+        console.log();
+      }
+
       saveMemories(memories.toJSON());
 
     } catch (err) {

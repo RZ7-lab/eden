@@ -3,11 +3,13 @@
 import readline from 'node:readline';
 import chalk from 'chalk';
 import os from 'node:os';
+import { execSync } from 'node:child_process';
 import { ensureEdenDir, loadConfig, saveConfig } from '../persistence/config.js';
 import { loadState, saveState, saveMemories } from '../persistence/store.js';
 import { scanUserProjects } from '../perception/deep-read.js';
+import type { UserProfile } from '../perception/deep-read.js';
 import { detectTools } from '../tools/registry.js';
-import { autoConnectAll } from '../tools/auto-connect.js';
+import { autoConnectAll, getMcpEntryPath } from '../tools/auto-connect.js';
 
 export async function runInit(): Promise<void> {
   const existing = loadState();
@@ -98,6 +100,7 @@ export async function runInit(): Promise<void> {
     content: `初始化。${profile.projects.length} 个项目，${topLangs.join('/')}，${profile.frameworks.slice(0, 3).join('/')}。`,
     timestamp: Date.now(),
     location: os.homedir(),
+    priority: 5,
   }]);
 
   // ===== Device token（自动生成） =====
@@ -120,18 +123,78 @@ export async function runInit(): Promise<void> {
     }
   }
 
-  // ===== 完成 =====
+  // ===== First Glimpse =====
   console.log();
-  console.log(chalk.dim('─'.repeat(50)));
-  console.log(`  ${chalk.cyan('Eden')} 已就绪。`);
+  console.log(chalk.dim('  ──────────────────────────────────────────────────'));
+  console.log(`  ${chalk.cyan('Eden')} 已就绪。这是它对你的第一印象：`);
+  console.log(chalk.dim('  ──────────────────────────────────────────────────'));
+  console.log();
+  console.log(`  ${generateFirstGlimpse(profile, topLangs, activeProjects, dormantProjects)}`);
+  console.log();
+  console.log(chalk.dim('  试试看：'));
+  console.log(chalk.dim('  · 打开 Claude Code，问它"你了解我吗"'));
+  console.log(chalk.dim('  · 运行 ') + chalk.cyan('eden me') + chalk.dim(' 看完整画像'));
+  console.log(chalk.dim('  · 运行 ') + chalk.cyan('eden report') + chalk.dim(' 看本周洞察'));
 
-  const connectedTools = results.filter(r => r.success).map(r => r.tool);
-  if (connectedTools.length > 0) {
-    console.log(chalk.dim(`  ${connectedTools.join('、')} 已连接。打开它们，Eden 已经在了。`));
+  // ===== MCP 验证 =====
+  const connectedClaudeCode = results.some(r => r.tool === 'Claude Code' && r.success);
+  if (connectedClaudeCode) {
+    try {
+      const mcpEntry = getMcpEntryPath();
+      const testPayload = '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"0.1.0"}}}';
+      const result = execSync(
+        `echo '${testPayload}' | node ${mcpEntry} 2>/dev/null`,
+        { timeout: 5000 },
+      );
+      if (result.toString().includes('"name":"eden"')) {
+        console.log();
+        console.log(`  ${chalk.green('✓')} MCP server 验证通过。`);
+      }
+    } catch {
+      // silent — not critical
+    }
   }
 
-  console.log(chalk.dim('─'.repeat(50)));
+  console.log(chalk.dim('  ──────────────────────────────────────────────────'));
   console.log();
+}
+
+function generateFirstGlimpse(
+  profile: UserProfile,
+  topLangs: string[],
+  activeProjects: { name: string; lastActivity: number }[],
+  dormantProjects: { name: string; lastActivity: number }[],
+): string {
+  const lines: string[] = [];
+
+  // Line 1: tech identity
+  const langStr = topLangs.map(l => chalk.cyan(l)).join('、');
+  const fwStr = profile.frameworks.length > 0
+    ? `，用 ${profile.frameworks.slice(0, 3).map(f => chalk.cyan(f)).join(' + ')}`
+    : '';
+  lines.push(`你主要写 ${langStr}${fwStr}。`);
+
+  // Line 2: project landscape + recent activity
+  const total = profile.projects.length;
+  if (activeProjects.length > 0) {
+    const activeNames = activeProjects.slice(0, 2).map(p => chalk.cyan(p.name)).join(' 和 ');
+    lines.push(`有 ${chalk.cyan(String(total))} 个项目，最近在忙 ${activeNames}。`);
+  } else {
+    lines.push(`有 ${chalk.cyan(String(total))} 个项目，最近都比较安静。`);
+  }
+
+  // Line 3: dormant projects (if any)
+  if (dormantProjects.length > 0) {
+    const dormantParts = dormantProjects.map(p => {
+      const days = Math.floor((Date.now() - p.lastActivity) / 1000 / 60 / 60 / 24);
+      return `${chalk.cyan(p.name)}`;
+    });
+    const maxDays = Math.max(...dormantProjects.map(p =>
+      Math.floor((Date.now() - p.lastActivity) / 1000 / 60 / 60 / 24)));
+    lines.push(chalk.dim(`${dormantParts.join(' 和 ')} 已经沉睡超过 ${maxDays} 天了。`));
+  }
+
+  return lines.join('\n  ');
 }
 
 function ask(prompt: string): Promise<string> {
