@@ -36,6 +36,7 @@ export async function startMcpServer(): Promise<void> {
         // Eden 醒来说的第一句话
         wakeUp: {
           note: wake.wakeUpNote || null,
+          proactive: wake.proactiveNote || null,
           scanLevel: wake.scanLevel,
           changes: wake.changes,
         },

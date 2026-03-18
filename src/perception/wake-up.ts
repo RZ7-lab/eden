@@ -6,14 +6,16 @@ import { perceiveGit } from './git.js';
 import { MemoryStore } from '../mind/memory.js';
 import { loadSessions } from '../tools/session.js';
 import { loadExternalContext, externalContextSummary } from './external.js';
+import { generateProactiveInsights, insightsToNote } from './proactive.js';
 import os from 'node:os';
 
 export interface WakeUpResult {
-  elapsed: number;           // 睡了多久（ms）
+  elapsed: number;
   scanLevel: 'cache' | 'quick' | 'full';
-  changes: string[];         // 发现的变化
-  wakeUpNote: string;        // 给 agent 的一句话
-  currentStatus: string[];   // 当前真实状态（覆盖旧记忆）
+  changes: string[];
+  wakeUpNote: string;
+  proactiveNote: string;     // 主动洞察
+  currentStatus: string[];
   profile: UserProfile;
   memories: MemoryStore;
   externalSummary: string | null;
@@ -33,15 +35,17 @@ export async function wakeUp(): Promise<WakeUpResult> {
     saveState({ ...state, lastActiveAt: now });
   }
 
-  // < 5 分钟：返回缓存
+  // < 5 分钟：返回缓存（仍然跑 proactive）
   if (elapsed < 5 * 60 * 1000) {
     const profile = loadUserProfile() || await scanUserProjects();
+    const insights = await generateProactiveInsights(profile, memories, []);
     return {
       elapsed,
       scanLevel: 'cache',
       changes: [],
       currentStatus: [],
       wakeUpNote: '',
+      proactiveNote: insightsToNote(insights),
       profile,
       memories,
       externalSummary: null,
@@ -58,6 +62,7 @@ export async function wakeUp(): Promise<WakeUpResult> {
       saveMemories(memories.toJSON());
     }
 
+    const quickInsights = await generateProactiveInsights(profile, memories, scan.currentStatus);
     return {
       elapsed,
       scanLevel: 'quick',
@@ -66,6 +71,7 @@ export async function wakeUp(): Promise<WakeUpResult> {
       wakeUpNote: scan.changes.length > 0
         ? `${formatDuration(elapsed)}没见。${scan.changes.join('。')}。`
         : `${formatDuration(elapsed)}没见。没什么变化。`,
+      proactiveNote: insightsToNote(quickInsights),
       profile,
       memories,
       externalSummary: null,
@@ -101,6 +107,7 @@ export async function wakeUp(): Promise<WakeUpResult> {
   }
   saveMemories(memories.toJSON());
 
+  const fullInsights = await generateProactiveInsights(newProfile, memories, gitScan.currentStatus);
   return {
     elapsed,
     scanLevel: 'full',
@@ -109,6 +116,7 @@ export async function wakeUp(): Promise<WakeUpResult> {
     wakeUpNote: changes.length > 0
       ? `${formatDuration(elapsed)}没见。发现: ${changes.join('。')}。`
       : `${formatDuration(elapsed)}没见。世界很安静。`,
+    proactiveNote: insightsToNote(fullInsights),
     profile: newProfile,
     memories,
     externalSummary: extSummary,

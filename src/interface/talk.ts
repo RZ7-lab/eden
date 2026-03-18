@@ -76,6 +76,9 @@ export async function startTalk(): Promise<void> {
   if (wake.wakeUpNote) {
     console.log(chalk.dim(`  ${wake.wakeUpNote}`));
   }
+  if (wake.proactiveNote) {
+    console.log(chalk.yellow(`  ${wake.proactiveNote}`));
+  }
   console.log(chalk.dim('  输入消息对话，Ctrl+C 退出'));
   console.log();
 
