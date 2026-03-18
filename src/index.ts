@@ -487,14 +487,18 @@ syncCmd
     mem.load(loadMemories());
     const insights = await generateProactiveInsights(profile as unknown as import('./perception/deep-read.js').UserProfile, mem, []);
 
-    // 读取周报叙事
+    // 读取周报
     let weeklyNarrative: string | undefined;
+    let reports: Array<Record<string, unknown>> = [];
     try {
       const { JOURNAL_DIR } = await import('./persistence/config.js');
       const journalFiles = fs.readdirSync(JOURNAL_DIR).filter((f: string) => f.startsWith('insight-')).sort().reverse();
-      if (journalFiles.length > 0) {
-        const report = JSON.parse(fs.readFileSync(`${JOURNAL_DIR}/${journalFiles[0]}`, 'utf-8'));
-        weeklyNarrative = report.narrative;
+      for (const file of journalFiles.slice(0, 12)) {
+        try {
+          const report = JSON.parse(fs.readFileSync(`${JOURNAL_DIR}/${file}`, 'utf-8'));
+          reports.push(report);
+          if (!weeklyNarrative) weeklyNarrative = report.narrative;
+        } catch {}
       }
     } catch {}
 
@@ -506,6 +510,7 @@ syncCmd
       sessions: loadSessions(),
       insights,
       weeklyNarrative,
+      reports,
       syncedAt: Date.now(),
     };
 

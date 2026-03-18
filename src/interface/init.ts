@@ -135,6 +135,7 @@ export async function runInit(): Promise<void> {
           priority: 5,
         }],
         sessions: [],
+        firstRun: true,
         syncedAt: Date.now(),
       }),
     });
