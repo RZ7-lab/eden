@@ -1,0 +1,174 @@
+name: Generate validated judges workbook
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out request branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - name: Install spreadsheet libraries
+        run: python -m pip install --disable-pip-version-check XlsxWriter==3.2.5 openpyxl==3.1.5
+
+      - name: Generate and validate workbook
+        shell: bash
+        run: |
+          mkdir -p tmp/chatgpt-output
+          python - <<'PY'
+          from pathlib import Path
+          import zipfile
+          import xlsxwriter
+          from openpyxl import load_workbook
+
+          out = Path('tmp/chatgpt-output/photon_judges_russell_kant.xlsx')
+
+          russell_q1 = '我心中的好作品，首先要“真诚”：能看见创作者真正想表达的东西；其次是“完整”：玩法、叙事、美术和节奏彼此服务，而不是各自精彩；最后是“有记忆点”：它不一定要面面俱到，但一定要留下一个让人愿意讲给别人听的瞬间。对我来说，这比单纯追求规模或技术更重要。'
+          russell_q2 = '我会特别看作品里“被玩家反复接触的细节”，比如新手引导是否自然、失败反馈是否清楚、按钮和动效是否在帮助理解规则。很多作品的大创意很亮眼，但真正决定体验质感的，往往是这些小地方是否自洽、是否尊重玩家的时间和情绪。'
+          russell_q4 = '瓶颈往往不是没有灵感，而是问题定义得还不够清楚。我建议先回到玩家：他们在什么情境下进入游戏，想获得什么感受？再去跨界观察电影、音乐、生活场景，把感受转译成玩法。灵感不是等来的，是在持续试错和复盘里被“撞”出来的。'
+
+          kant_q1 = '我会选“清晰、克制、可生长”。清晰，是玩家很快知道自己为何行动；克制，是每个系统和表达都有必要，不用堆砌掩盖核心；可生长，则意味着作品在通关后仍能被讨论、被重玩，甚至让玩家产生自己的故事。规模可以有限，但设计意图必须坚定。'
+          kant_q3 = '十年前，一款好游戏首先要在既定硬件和类型框架里把体验做到扎实；今天，玩家的选择更多、注意力更稀缺，作品还要建立鲜明身份，并理解直播、社区和长期更新带来的新语境。但底层标准没有变：规则要可信，反馈要诚实，玩家投入的时间要得到尊重。'
+          kant_q4 = '我习惯把瓶颈当成一个需要重新提问的信号。先暂停继续加内容，写清楚当前最想让玩家感受到什么，再做一个最小原型验证；同时主动接触与游戏无关的领域，寻找新的结构和节奏。真正有效的灵感，通常不是突然降临，而是旧问题被换了一种问法。'
+
+          answers = {
+              'Russell Q1': russell_q1,
+              'Russell Q2': russell_q2,
+              'Russell Q4': russell_q4,
+              'Kant Q1': kant_q1,
+              'Kant Q3': kant_q3,
+              'Kant Q4': kant_q4,
+          }
+          for label, value in answers.items():
+              assert 100 <= len(value) <= 150, f'{label}: {len(value)} 字，不在 100-150 字范围内'
+
+          workbook = xlsxwriter.Workbook(out)
+          workbook.set_properties({
+              'title': '第二期《光子游戏大赛 · 评委问答特辑》内部评委收集表',
+              'subject': 'Russell、Kant 评委问答',
+              'author': '光子游戏大赛',
+              'company': '光子工作室群',
+              'comments': '已填写 Russell 与 Kant 的选答内容。',
+          })
+          worksheet = workbook.add_worksheet('评委问答收集表')
+          worksheet.hide_gridlines(2)
+          worksheet.freeze_panes(12, 2)
+          worksheet.set_zoom(70)
+          worksheet.set_landscape()
+          worksheet.set_paper(9)
+          worksheet.fit_to_pages(1, 0)
+          worksheet.set_margins(0.25, 0.25, 0.45, 0.45)
+          worksheet.print_area('A1:I16')
+
+          navy = '#1F4E78'
+          blue = '#2F75B5'
+          pale_blue = '#DDEBF7'
+          pale_gold = '#FFF2CC'
+          pale_gray = '#F3F6F8'
+          border = '#9EADBA'
+          text = '#1F2933'
+          white = '#FFFFFF'
+
+          base = {'font_name': 'Microsoft YaHei', 'font_size': 10, 'font_color': text}
+          title_fmt = workbook.add_format({**base, 'bold': True, 'font_size': 17, 'font_color': white, 'bg_color': navy, 'align': 'center', 'valign': 'vcenter', 'border': 1, 'border_color': navy})
+          note_fmt = workbook.add_format({**base, 'bg_color': pale_gold, 'align': 'left', 'valign': 'vcenter', 'text_wrap': True, 'border': 1, 'border_color': '#D6B656'})
+          section_fmt = workbook.add_format({**base, 'bold': True, 'font_size': 11, 'font_color': navy, 'bg_color': pale_blue, 'align': 'left', 'valign': 'vcenter', 'border': 1, 'border_color': blue})
+          qlabel_fmt = workbook.add_format({**base, 'bold': True, 'font_color': white, 'bg_color': blue, 'align': 'center', 'valign': 'vcenter', 'border': 1, 'border_color': blue})
+          qtext_fmt = workbook.add_format({**base, 'bg_color': pale_blue, 'align': 'left', 'valign': 'vcenter', 'text_wrap': True, 'border': 1, 'border_color': blue})
+          header_fmt = workbook.add_format({**base, 'bold': True, 'font_color': white, 'bg_color': navy, 'align': 'center', 'valign': 'vcenter', 'text_wrap': True, 'border': 1, 'border_color': white})
+          name_fmt = workbook.add_format({**base, 'bold': True, 'align': 'center', 'valign': 'vcenter', 'border': 1, 'border_color': border})
+          code_fmt = workbook.add_format({**base, 'bold': True, 'font_color': navy, 'bg_color': pale_gray, 'align': 'center', 'valign': 'vcenter', 'border': 1, 'border_color': border})
+          answer_fmt = workbook.add_format({**base, 'align': 'left', 'valign': 'top', 'text_wrap': True, 'border': 1, 'border_color': border})
+          center_fmt = workbook.add_format({**base, 'align': 'center', 'valign': 'vcenter', 'text_wrap': True, 'border': 1, 'border_color': border})
+          deadline_fmt = workbook.add_format({**base, 'bold': True, 'font_color': navy, 'bg_color': pale_gold, 'align': 'left', 'valign': 'vcenter', 'border': 1, 'border_color': '#D6B656'})
+
+          for col, width in enumerate([12, 14, 40, 14, 40, 14, 40, 27, 16]):
+              worksheet.set_column(col, col, width)
+
+          row_heights = {0: 32, 1: 10, 2: 48, 3: 10, 4: 26, 5: 32, 6: 32, 7: 32, 8: 32, 9: 10, 10: 26, 11: 54, 12: 122, 13: 122, 14: 10, 15: 26}
+          for row, height in row_heights.items():
+              worksheet.set_row(row, height)
+
+          worksheet.merge_range('A1:I1', '第二期《光子游戏大赛 · 评委问答特辑》内部评委收集表', title_fmt)
+          worksheet.merge_range('A3:I3', '填写说明：本期共 4 个问题，请您从中任选 3 个回答。每题建议 100-150 字（便于海报排版呈现），欢迎分享真实经历、个人观点、具体细节，若能回答得有趣味性更好。如有疑问群里随时沟通～', note_fmt)
+          worksheet.merge_range('A5:I5', '4 个问题（任选 3 题）：', section_fmt)
+
+          questions = [
+              ('Q1', '如果能用三个词形容你心中的好作品，会是哪三个？'),
+              ('Q2', '哪些作品中的细节是参赛者容易忽略，但你会重点看的？'),
+              ('Q3', '现在的好作品和十年前的好游戏，是否有什么不同？'),
+              ('Q4', '创作路上难免遇到瓶颈，应该如何寻找新灵感、突破创作瓶颈呢？'),
+          ]
+          for row, (qid, question) in enumerate(questions, start=5):
+              worksheet.write(row, 0, qid, qlabel_fmt)
+              worksheet.merge_range(row, 1, row, 8, question, qtext_fmt)
+
+          worksheet.merge_range('A11:I11', '请在下方填写：', section_fmt)
+          headers = [
+              '嘉宾',
+              '选答 · 第 1 题\n（请填 Q1-Q4 编号）',
+              '第 1 题回答\n（100-150字）',
+              '选答 · 第 2 题\n（请填 Q1-Q4 编号）',
+              '第 2 题回答\n（100-150字）',
+              '选答 · 第 3 题\n（请填 Q1-Q4 编号）',
+              '第 3 题回答\n（100-150字）',
+              '对外称呼+title\n（外宣口径）',
+              '高清半身照片',
+          ]
+          for col, header in enumerate(headers):
+              worksheet.write(11, col, header, header_fmt)
+
+          rows = [
+              ['Russell', 'Q1', russell_q1, 'Q2', russell_q2, 'Q4', russell_q4, 'Russell｜光子游戏大赛评委', '待提供'],
+              ['Kant', 'Q1', kant_q1, 'Q3', kant_q3, 'Q4', kant_q4, 'Kant｜光子游戏大赛评委', '待提供'],
+          ]
+          for row_idx, row_values in enumerate(rows, start=12):
+              worksheet.write(row_idx, 0, row_values[0], name_fmt)
+              worksheet.write(row_idx, 1, row_values[1], code_fmt)
+              worksheet.write(row_idx, 2, row_values[2], answer_fmt)
+              worksheet.write(row_idx, 3, row_values[3], code_fmt)
+              worksheet.write(row_idx, 4, row_values[4], answer_fmt)
+              worksheet.write(row_idx, 5, row_values[5], code_fmt)
+              worksheet.write(row_idx, 6, row_values[6], answer_fmt)
+              worksheet.write(row_idx, 7, row_values[7], center_fmt)
+              worksheet.write(row_idx, 8, row_values[8], center_fmt)
+
+          worksheet.merge_range('A16:I16', '提交截止时间：6.29', deadline_fmt)
+          workbook.close()
+
+          assert out.read_bytes()[:4] == b'PK\x03\x04', '文件不是标准 OOXML ZIP 容器'
+          with zipfile.ZipFile(out, 'r') as archive:
+              assert archive.testzip() is None, 'XLSX 压缩包损坏'
+              required = {'[Content_Types].xml', '_rels/.rels', 'xl/workbook.xml', 'xl/worksheets/sheet1.xml'}
+              missing = required.difference(archive.namelist())
+              assert not missing, f'XLSX 缺少必要部件: {sorted(missing)}'
+
+          check = load_workbook(out, read_only=False, data_only=False)
+          assert check.sheetnames == ['评委问答收集表']
+          sheet = check['评委问答收集表']
+          assert sheet['A13'].value == 'Russell'
+          assert sheet['A14'].value == 'Kant'
+          assert sheet['B14'].value == 'Q1' and sheet['D14'].value == 'Q3' and sheet['F14'].value == 'Q4'
+          assert sheet['C14'].value == kant_q1 and sheet['E14'].value == kant_q3 and sheet['G14'].value == kant_q4
+          check.close()
+          print(f'Validated workbook: {out} ({out.stat().st_size} bytes)')
+          PY
+
+      - name: Commit generated workbook to temporary branch
+        run: |
+          git config user.name 'chatgpt-artifact-bot'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add tmp/chatgpt-output/photon_judges_russell_kant.xlsx
+          git commit -m 'Generate validated Russell and Kant workbook'
+          git push origin HEAD:${{ github.head_ref }}
